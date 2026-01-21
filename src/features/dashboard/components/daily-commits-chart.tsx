@@ -86,8 +86,8 @@ export function DailyCommitsChart() {
               dataKey='commits'
               stroke='#2dd4bf'
               strokeWidth={2}
-              dot={{ fill: '#2dd4bf', strokeWidth: 2 }}
-              activeDot={{ r: 6, fill: '#14b8a6' }}
+              dot={{ fill: '#2dd4bf', stroke: '#2dd4bf', strokeWidth: 2, r: 4 }}
+              activeDot={{ r: 6, fill: '#14b8a6', stroke: '#14b8a6' }}
             />
           </LineChart>
         </ResponsiveContainer>
