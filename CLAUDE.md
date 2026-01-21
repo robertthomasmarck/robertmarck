@@ -2,72 +2,102 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
-
-This is a Flowbite Astro Admin Dashboard - a free, open-source admin dashboard template built with Astro, Tailwind CSS, and Flowbite components. It provides pre-built pages for dashboards, CRUD layouts, authentication, and error handling.
-
 ## Development Commands
 
 ```bash
-pnpm install          # Install dependencies (npm/yarn also supported)
-pnpm run dev          # Start dev server on http://localhost:2121
-pnpm run build        # Build static site to /dist
-pnpm run preview      # Preview production build
+pnpm dev          # Start development server
+pnpm build        # Type check and build for production
+pnpm lint         # Run ESLint
+pnpm format       # Format code with Prettier
+pnpm format:check # Check formatting without changes
+pnpm preview      # Preview production build
+pnpm knip         # Find unused files, exports, and dependencies
 ```
 
-## Architecture
+### Local Preview for Agents
 
-### Component Hierarchy
+When spinning up a local dev server for the user to verify changes:
+- Do NOT use `localhost` - it may not be accessible
+- Do NOT use `pnpm dev` directly - use `npm run dev -- --host`
+- Use the network IP address (e.g., `http://192.168.x.x:5173/`)
+
+## Architecture Overview
+
+This is a React dashboard built with Vite, TanStack Router (file-based routing), and ShadcnUI components.
+
+### Core Stack
+- **UI**: ShadcnUI (TailwindCSS v4 + RadixUI) with "new-york" style
+- **Routing**: TanStack Router with file-based routing (routes auto-generated in `src/routeTree.gen.ts`)
+- **State**: Zustand for auth state, TanStack Query for server state
+- **Forms**: React Hook Form + Zod validation
+- **Database**: Supabase (GitHub commits, Claude usage tracking, daily stats)
+- **Auth Options**: Built-in auth forms OR Clerk integration (under `/clerk/*` routes)
+
+### Directory Structure
 
 ```
-src/app/         → Application-wide layouts (LayoutSidebar, LayoutStacked, NavBar, Footer)
-src/components/  → Atomic, reusable UI elements (buttons, inputs, toggles)
-src/modules/     → Complex views composed of components (DashBoard, CrudProducts, forms)
-src/pages/       → File-based routing (Astro pages)
-src/services/    → Server-side data operations (products.ts, users.ts)
-src/types/       → TypeScript interfaces (entities.ts)
-src/lib/         → Utilities and helpers
-data/            → Static JSON data sources (products.json, users.json)
+src/
+├── routes/           # TanStack Router file-based routes
+│   ├── __root.tsx    # Root layout (toaster, devtools, error boundaries)
+│   ├── _authenticated/  # Protected routes (require auth)
+│   └── (auth)/       # Public auth pages (sign-in, sign-up, etc.)
+├── features/         # Feature modules (self-contained with components/data)
+│   ├── dashboard/    # Main dashboard with GitHub/Claude stats
+│   ├── tasks/        # Task management CRUD
+│   ├── users/        # User management CRUD
+│   └── settings/     # User settings pages
+├── components/
+│   ├── ui/           # ShadcnUI primitives (excluded from linting)
+│   ├── layout/       # App shell (sidebar, header, nav)
+│   └── data-table/   # Reusable TanStack Table components
+├── context/          # React contexts (theme, direction, layout, search, font)
+├── stores/           # Zustand stores (auth-store.ts)
+├── hooks/            # Custom hooks (use-github-stats, use-claude-stats, etc.)
+└── lib/              # Utilities (supabase client, cookies, utils)
 ```
 
-### Two Layout Systems
+### Routing Conventions
 
-- **Sidebar Layout** (`LayoutSidebar.astro`): Traditional sidebar navigation
-- **Stacked Layout** (`LayoutStacked.astro`): Horizontal navigation bar
+TanStack Router uses file/folder naming conventions:
+- `_authenticated/` - Layout route that wraps protected pages with `AuthenticatedLayout`
+- `(auth)/` - Pathless grouping for auth pages (doesn't affect URL)
+- `$param` - Dynamic route segments
+- Route files export `Route` via `createFileRoute()`
 
-Both extend `LayoutCommon.astro` as the base.
+### Key Patterns
 
-### Data Flow
+**Adding a new protected page:**
+1. Create file in `src/routes/_authenticated/your-page.tsx`
+2. Export Route with `createFileRoute('/_authenticated/your-page')`
+3. Feature code goes in `src/features/your-feature/`
 
-Static JSON (`data/*.json`) → Services (`src/services/*.ts`) → REST API (`src/pages/api/[...entity].ts`) → Pages/Modules
+**ShadcnUI Components:**
+- Some components have RTL modifications (see README for list)
+- Run `npx shadcn@latest add <component>` for standard components
+- Manually merge for customized ones (scroll-area, sonner, separator, sidebar, etc.)
 
-### Client-Side Interactivity
+**Environment Variables:**
+```
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+VITE_GITHUB_USERNAME=
+VITE_CLERK_PUBLISHABLE_KEY=  # Only needed for Clerk routes
+```
 
-- `*.client.ts` files contain browser JavaScript (ApexCharts integration, CRUD modal logic)
-- Flowbite provides interactive components (modals, drawers, tooltips)
-- No frontend framework (React/Vue) - vanilla JS + Flowbite
+### Code Style
 
-### REST API
+- ESLint enforces `no-console` (use toast for user feedback)
+- TypeScript: Use `type` imports with inline syntax (`import { type Foo }`)
+- Unused vars must be prefixed with `_`
+- Prettier auto-sorts imports (see `.prettierrc` for order)
+- Single quotes, no semicolons, 2-space indentation
 
-Single catch-all endpoint at `src/pages/api/[...entity].ts` handles `/api/products` and `/api/users`.
+### Database Schema (Supabase)
 
-### Configuration
-
-- **SSR Mode**: Uncomment `output: 'server'` in `astro.config.mjs` to enable
-- **Randomization**: Toggle `RANDOMIZE` in `src/app/constants.ts` to use Faker-generated data
-- **Remote Assets**: Dashboard images fetched from `https://flowbite-admin-dashboard.vercel.app`
-
-## Code Style
-
-- TypeScript with Astro's strictest settings
-- ESLint with Airbnb + Prettier config
-- Max 250 lines per file (ESLint enforced)
-- Tailwind CSS utility classes only (no custom CSS)
-
-## Key Dependencies
-
-- **Astro** (v2.x) - SSG framework
-- **Flowbite** (v2.1.1) - UI component library
-- **Tailwind CSS** (v3.x) - Utility-first CSS
-- **ApexCharts** - Dashboard charts
-- **@faker-js/faker** - Test data generation
+Tables track developer productivity metrics:
+- `github_commits` - Individual commit records
+- `github_repositories` - Repository metadata
+- `github_languages` - Language breakdown per repo
+- `claude_usage` - Claude API token usage
+- `daily_stats` - Aggregated daily statistics
+- `sync_status` - Data sync tracking
